@@ -1,9 +1,10 @@
 package com.patient.management.service;
 
-import com.patient.management.dto.ProviderRegistrationRequest;
-import com.patient.management.dto.ProviderRegistrationResponse;
+import com.patient.management.dto.*;
+import com.patient.management.entity.Patient;
 import com.patient.management.entity.Provider;
 import com.patient.management.repository.ProviderRepository;
+import com.patient.management.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -12,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,6 +27,9 @@ public class ProviderService {
     private ValidationService validationService;
     @Autowired
     private EmailService emailService;
+    @Autowired
+    private final JwtUtil jwtUtil;
+
 
     @Transactional
     public ProviderRegistrationResponse registerProvider(ProviderRegistrationRequest request) {
@@ -109,5 +115,33 @@ public class ProviderService {
         addr.setState(reqAddr.getState().trim());
         addr.setZip(reqAddr.getZip().trim());
         return addr;
+    }
+
+
+    public ProviderLoginResponse login(ProviderLoginRequest req) {
+        // Validate input
+        if (req.getIdentifier() == null || req.getIdentifier().isBlank() || req.getPassword() == null || req.getPassword().isBlank()) {
+            return new ProviderLoginResponse(false, "Email and password are required", null, "INVALID_INPUT");
+        }
+        Optional<Provider> patientOpt = providerRepository.findByEmail(req.getIdentifier().trim().toLowerCase());
+        if (patientOpt.isEmpty()) {
+            return new ProviderLoginResponse(false, "Invalid credentials", null, "INVALID_CREDENTIALS");
+        }
+        Provider provider = patientOpt.get();
+        if (!BCrypt.checkpw(req.getPassword(), provider.getPasswordHash())) {
+            return new ProviderLoginResponse(false, "Invalid credentials", null, "INVALID_CREDENTIALS");
+        }
+        // JWT generation
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("patient_id", provider.getId());
+        claims.put("email", provider.getEmail());
+        claims.put("role", "PATIENT");
+        String token = jwtUtil.generateToken(claims, 30 * 60 * 1000); // 30 min
+        ProviderLoginResponse.ProviderInfo info = new ProviderLoginResponse.ProviderInfo(
+                provider.getId(), provider.getFirstName(), provider.getLastName(), provider.getEmail(),
+                provider.getSpecialization(), provider.getVerificationStatus().toString(), provider.isActive()
+        );
+        ProviderLoginResponse.Data data = new ProviderLoginResponse.Data(token, 1800, "Bearer", info);
+        return new ProviderLoginResponse(true, "Login successful", data, null);
     }
 } 

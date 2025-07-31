@@ -18,7 +18,6 @@ public class ProviderLoginResponse {
     @AllArgsConstructor
     public static class Data {
         private String accessToken;
-        private String refreshToken;
         private long expiresIn;
         private String tokenType;
         private ProviderInfo provider;
