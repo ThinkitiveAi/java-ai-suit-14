@@ -28,4 +28,18 @@ public interface AppointmentSlotRepository extends JpaRepository<AppointmentSlot
                                       @Param("statusOnlyAvailable") boolean statusOnlyAvailable);
 
     List<AppointmentSlot> findByAvailabilityId(String availabilityId);
+    
+    @Query("SELECT s FROM AppointmentSlot s WHERE s.providerId = :providerId AND s.slotStartTime >= :start AND s.slotEndTime <= :end AND (:status IS NULL OR s.status = :status) AND (:type IS NULL OR s.appointmentType = :type) ORDER BY s.slotStartTime")
+    List<AppointmentSlot> findByProviderAndRangeAndFiltersOrdered(@Param("providerId") String providerId,
+                                                                  @Param("start") Instant start,
+                                                                  @Param("end") Instant end,
+                                                                  @Param("status") AppointmentSlot.SlotStatus status,
+                                                                  @Param("type") ProviderAvailability.AppointmentType type);
+    
+    @Query("SELECT s FROM AppointmentSlot s WHERE s.patientId = :patientId AND s.slotStartTime >= :start AND s.slotEndTime <= :end AND (:status IS NULL OR s.status = :status) AND (:type IS NULL OR s.appointmentType = :type) ORDER BY s.slotStartTime")
+    List<AppointmentSlot> findByPatientAndRangeAndFiltersOrdered(@Param("patientId") String patientId,
+                                                                 @Param("start") Instant start,
+                                                                 @Param("end") Instant end,
+                                                                 @Param("status") AppointmentSlot.SlotStatus status,
+                                                                 @Param("type") ProviderAvailability.AppointmentType type);
 } 

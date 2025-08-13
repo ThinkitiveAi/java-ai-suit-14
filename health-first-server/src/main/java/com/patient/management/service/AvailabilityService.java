@@ -278,6 +278,108 @@ public class AvailabilityService {
         return slot.getBookingReference();
     }
 
+    public AppointmentListResponse listAppointments(String userId, String userType, AppointmentListRequest request) {
+        ZoneId zone = request.getTimezone() != null && !request.getTimezone().isBlank() 
+                ? ZoneId.of(request.getTimezone()) 
+                : ZoneId.systemDefault();
+        
+        LocalDate startDate = LocalDate.parse(request.getStart_date(), DATE_FMT);
+        LocalDate endDate = LocalDate.parse(request.getEnd_date(), DATE_FMT);
+        Instant startInstant = startDate.atStartOfDay(zone).toInstant();
+        Instant endInstant = endDate.plusDays(1).atStartOfDay(zone).toInstant();
+        
+        AppointmentSlot.SlotStatus status = request.getStatus() != null 
+                ? AppointmentSlot.SlotStatus.valueOf(request.getStatus().toUpperCase()) 
+                : null;
+        ProviderAvailability.AppointmentType type = request.getAppointment_type() != null 
+                ? mapAppointmentType(request.getAppointment_type()) 
+                : null;
+        
+        List<AppointmentSlot> slots;
+        if ("provider".equalsIgnoreCase(userType)) {
+            slots = slotRepository.findByProviderAndRangeAndFiltersOrdered(userId, startInstant, endInstant, status, type);
+        } else if ("patient".equalsIgnoreCase(userType)) {
+            slots = slotRepository.findByPatientAndRangeAndFiltersOrdered(userId, startInstant, endInstant, status, type);
+        } else {
+            throw new IllegalArgumentException("Invalid user_type. Must be 'provider' or 'patient'");
+        }
+        
+        List<AppointmentDto> appointments = new ArrayList<>();
+        for (AppointmentSlot slot : slots) {
+            ProviderAvailability availability = availabilityRepository.findById(slot.getAvailabilityId()).orElse(null);
+            if (availability == null) continue;
+            
+            // Get provider info
+            Provider provider = providerRepository.findById(slot.getProviderId()).orElse(null);
+            String providerName = provider != null ? provider.getFirstName() + " " + provider.getLastName() : "Unknown Provider";
+            String providerSpecialization = provider != null ? provider.getSpecialization() : "Unknown";
+            
+            // Get patient info (if available)
+            String patientName = "Unknown Patient";
+            if (slot.getPatientId() != null) {
+                // Note: You might want to inject PatientRepository to get patient details
+                // For now, using a placeholder
+                patientName = "Patient " + slot.getPatientId().substring(0, Math.min(8, slot.getPatientId().length()));
+            }
+            
+            LocalDateTime startLdt = LocalDateTime.ofInstant(slot.getSlotStartTime(), zone);
+            LocalDate dateL = startLdt.toLocalDate();
+            String startStr = TIME_FMT.format(startLdt);
+            String endStr = TIME_FMT.format(LocalDateTime.ofInstant(slot.getSlotEndTime(), zone));
+            
+            LocationDto location = null;
+            if (availability.getLocation() != null) {
+                location = new LocationDto(
+                        availability.getLocation().getType().name().toLowerCase(),
+                        availability.getLocation().getAddress(),
+                        availability.getLocation().getRoomNumber()
+                );
+            }
+            
+            PricingDto pricing = null;
+            if (availability.getPricing() != null) {
+                pricing = new PricingDto(
+                        availability.getPricing().getBaseFee(),
+                        availability.getPricing().getInsuranceAccepted(),
+                        availability.getPricing().getCurrency()
+                );
+            }
+            
+            AppointmentDto appointment = new AppointmentDto(
+                    slot.getId(),
+                    slot.getId(), // slot_id same as appointment_id for now
+                    slot.getBookingReference(),
+                    slot.getProviderId(),
+                    providerName,
+                    providerSpecialization,
+                    slot.getPatientId(),
+                    patientName,
+                    dateL.format(DATE_FMT),
+                    startStr,
+                    endStr,
+                    slot.getStatus().name().toLowerCase(),
+                    slot.getAppointmentType().name().toLowerCase(),
+                    location,
+                    pricing,
+                    availability.getNotes(),
+                    availability.getSpecialRequirements(),
+                    slot.getCreatedAt() != null ? slot.getCreatedAt().toString() : null,
+                    slot.getUpdatedAt() != null ? slot.getUpdatedAt().toString() : null
+            );
+            appointments.add(appointment);
+        }
+        
+        AppointmentListResponse.AppointmentListData data = new AppointmentListResponse.AppointmentListData(
+                userId,
+                userType,
+                request,
+                appointments.size(),
+                appointments
+        );
+        
+        return new AppointmentListResponse(true, "Appointments retrieved successfully", data);
+    }
+
     private void validateSlotDurations(Integer slotDuration, Integer breakDuration) {
         int sd = slotDuration != null ? slotDuration : 30;
         int bd = breakDuration != null ? breakDuration : 0;
