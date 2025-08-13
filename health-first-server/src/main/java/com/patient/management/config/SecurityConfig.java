@@ -19,7 +19,8 @@ public class SecurityConfig {
                                 "/api/v1/patient/register",
                                 "/api/v1/patient/login",
                                 "/api/v1/provider/register",
-                                "/api/v1/provider/login"
+                                "/api/v1/provider/login",
+                                "/api/v1/availability/search"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
