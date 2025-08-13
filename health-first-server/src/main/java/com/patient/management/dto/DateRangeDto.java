@@ -4,13 +4,10 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.util.List;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class SearchAvailabilityResponse {
-    private boolean success;
-    private SearchDataPayloadDto data;
+public class DateRangeDto {
+    private String start;
+    private String end;
 } 

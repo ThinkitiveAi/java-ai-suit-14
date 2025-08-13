@@ -11,10 +11,5 @@ public class UpdateAvailabilitySlotRequest {
     private String status; // available/booked/cancelled/blocked
     private String notes;
 
-    private Pricing pricing;
-
-    @Data
-    public static class Pricing {
-        private BigDecimal base_fee;
-    }
+    private UpdatePricingDto pricing;
 } 

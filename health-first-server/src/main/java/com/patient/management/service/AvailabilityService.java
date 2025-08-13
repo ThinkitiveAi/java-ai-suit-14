@@ -67,7 +67,7 @@ public class AvailabilityService {
 
         AvailabilityResponses.CreateData data = new AvailabilityResponses.CreateData(
                 base.getId(), totalSlotsCreated,
-                new AvailabilityResponses.DateRange(startDate.format(DATE_FMT), endDate.format(DATE_FMT)),
+                new DateRangeDto(startDate.format(DATE_FMT), endDate.format(DATE_FMT)),
                 totalAppointmentsAvailable
         );
         return new AvailabilityResponses(true, "Availability slots created successfully", data);
@@ -91,10 +91,10 @@ public class AvailabilityService {
         int booked = (int) slots.stream().filter(s -> s.getStatus() == AppointmentSlot.SlotStatus.BOOKED).count();
         int cancelled = (int) slots.stream().filter(s -> s.getStatus() == AppointmentSlot.SlotStatus.CANCELLED).count();
 
-        List<AvailabilityResponses.DayAvailability> days = new ArrayList<>();
+        List<DayAvailabilityDto> days = new ArrayList<>();
         for (Map.Entry<LocalDate, List<AppointmentSlot>> entry : byDay.entrySet()) {
-            List<AvailabilityResponses.Slot> slotDtos = entry.getValue().stream().sorted(Comparator.comparing(AppointmentSlot::getSlotStartTime))
-                    .map(s -> new AvailabilityResponses.Slot(
+            List<SlotDto> slotDtos = entry.getValue().stream().sorted(Comparator.comparing(AppointmentSlot::getSlotStartTime))
+                    .map(s -> new SlotDto(
                             s.getId(),
                             TIME_FMT.format(LocalDateTime.ofInstant(s.getSlotStartTime(), zone)),
                             TIME_FMT.format(LocalDateTime.ofInstant(s.getSlotEndTime(), zone)),
@@ -104,10 +104,10 @@ public class AvailabilityService {
                             null  // pricing optional in slot response summary
                     ))
                     .collect(Collectors.toList());
-            days.add(new AvailabilityResponses.DayAvailability(entry.getKey().format(DATE_FMT), slotDtos));
+            days.add(new DayAvailabilityDto(entry.getKey().format(DATE_FMT), slotDtos));
         }
 
-        AvailabilityResponses.AvailabilitySummary summary = new AvailabilityResponses.AvailabilitySummary(total, available, booked, cancelled);
+        AvailabilitySummaryDto summary = new AvailabilitySummaryDto(total, available, booked, cancelled);
         return new AvailabilityResponses.ProviderAvailabilityData(providerId, summary, days);
     }
 
@@ -191,7 +191,7 @@ public class AvailabilityService {
         List<AppointmentSlot> slots = slotRepository.findInRange(startInstant, endInstant, availableOnly != null ? availableOnly : true);
 
         // Filter by provider data, pricing, appointment type
-        List<SearchAvailabilityResponse.Result> results = new ArrayList<>();
+        List<SearchResultDto> results = new ArrayList<>();
         Map<String, List<AppointmentSlot>> byProvider = slots.stream().collect(Collectors.groupingBy(AppointmentSlot::getProviderId));
         for (Map.Entry<String, List<AppointmentSlot>> entry : byProvider.entrySet()) {
             Optional<Provider> providerOpt = providerRepository.findById(entry.getKey());
@@ -202,7 +202,7 @@ public class AvailabilityService {
             if (location != null && clinicAddress != null && !clinicAddress.toLowerCase().contains(location.toLowerCase())) continue;
 
             List<AppointmentSlot> providerSlots = entry.getValue();
-            List<SearchAvailabilityResponse.AvailableSlot> availableSlotDtos = new ArrayList<>();
+            List<AvailableSlotDto> availableSlotDtos = new ArrayList<>();
             for (AppointmentSlot s : providerSlots) {
                 if (appointmentType != null && !s.getAppointmentType().name().equalsIgnoreCase(appointmentType)) continue;
                 ProviderAvailability availability = availabilityRepository.findById(s.getAvailabilityId()).orElse(null);
@@ -218,23 +218,23 @@ public class AvailabilityService {
                 String startStr = TIME_FMT.format(startLdt);
                 String endStr = TIME_FMT.format(LocalDateTime.ofInstant(s.getSlotEndTime(), zone));
 
-                SearchAvailabilityResponse.Location loc = null;
+                LocationDto loc = null;
                 if (availability.getLocation() != null) {
-                    loc = new SearchAvailabilityResponse.Location(
+                    loc = new LocationDto(
                             availability.getLocation().getType().name().toLowerCase(),
                             availability.getLocation().getAddress(),
                             availability.getLocation().getRoomNumber()
                     );
                 }
-                SearchAvailabilityResponse.Pricing price = null;
+                PricingDto price = null;
                 if (availability.getPricing() != null) {
-                    price = new SearchAvailabilityResponse.Pricing(
+                    price = new PricingDto(
                             availability.getPricing().getBaseFee(),
                             availability.getPricing().getInsuranceAccepted(),
                             availability.getPricing().getCurrency()
                     );
                 }
-                SearchAvailabilityResponse.AvailableSlot dto = new SearchAvailabilityResponse.AvailableSlot(
+                AvailableSlotDto dto = new AvailableSlotDto(
                         s.getId(), dateL.format(DATE_FMT), startStr, endStr,
                         s.getAppointmentType().name().toLowerCase(),
                         loc,
@@ -244,14 +244,14 @@ public class AvailabilityService {
                 availableSlotDtos.add(dto);
             }
             if (availableSlotDtos.isEmpty()) continue;
-            SearchAvailabilityResponse.ProviderInfo pinfo = new SearchAvailabilityResponse.ProviderInfo(
+            ProviderInfoDto pinfo = new ProviderInfoDto(
                     prov.getId(), prov.getFirstName() + " " + prov.getLastName(), prov.getSpecialization(), prov.getYearsOfExperience(), 4.8,
                     clinicAddress
             );
-            results.add(new SearchAvailabilityResponse.Result(pinfo, availableSlotDtos));
+            results.add(new SearchResultDto(pinfo, availableSlotDtos));
         }
 
-        SearchAvailabilityResponse.SearchCriteria criteria = new SearchAvailabilityResponse.SearchCriteria(
+        SearchCriteriaDto criteria = new SearchCriteriaDto(
                 date,
                 startDate,
                 endDate,
@@ -263,7 +263,7 @@ public class AvailabilityService {
                 timezone,
                 availableOnly
         );
-        SearchAvailabilityResponse.DataPayload data = new SearchAvailabilityResponse.DataPayload(criteria, results.size(), results);
+        SearchDataPayloadDto data = new SearchDataPayloadDto(criteria, results.size(), results);
         return new SearchAvailabilityResponse(true, data);
     }
 

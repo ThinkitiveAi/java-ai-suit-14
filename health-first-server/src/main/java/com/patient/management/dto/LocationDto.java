@@ -4,13 +4,11 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.util.List;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class SearchAvailabilityResponse {
-    private boolean success;
-    private SearchDataPayloadDto data;
+public class LocationDto {
+    private String type; // clinic/hospital/telemedicine/home_visit
+    private String address;
+    private String room_number;
 } 

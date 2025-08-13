@@ -24,26 +24,11 @@ public class CreateAvailabilityRequest {
     private String recurrence_end_date; // YYYY-MM-DD
     private String appointment_type; // consultation/follow_up/emergency/telemedicine
 
-    private Location location;
-    private Pricing pricing;
+    private LocationDto location;
+    private PricingDto pricing;
 
     private List<String> special_requirements;
 
     @Size(max = 500)
     private String notes;
-
-    @Data
-    public static class Location {
-        @NotBlank
-        private String type; // clinic/hospital/telemedicine/home_visit
-        private String address;
-        private String room_number;
-    }
-
-    @Data
-    public static class Pricing {
-        private BigDecimal base_fee;
-        private Boolean insurance_accepted;
-        private String currency;
-    }
 } 
